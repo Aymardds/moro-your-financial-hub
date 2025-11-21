@@ -1,8 +1,15 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
+import { useContext } from "react";
+import { AuthContext } from "@/contexts/AuthContext";
 
 export const Header = () => {
+  const navigate = useNavigate();
+  const authContext = useContext(AuthContext);
+  const user = authContext?.user || null;
+  const signOut = authContext?.signOut || (() => {});
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
       <div className="container mx-auto px-4 py-4">
@@ -30,12 +37,25 @@ export const Header = () => {
           </nav>
 
           <div className="flex items-center gap-3">
-            <Button variant="ghost" className="hidden md:inline-flex">
-              Se connecter
-            </Button>
-            <Button variant="hero">
-              Commencer
-            </Button>
+            {user ? (
+              <>
+                <Button variant="ghost" onClick={() => navigate("/dashboard")} className="hidden md:inline-flex">
+                  Dashboard
+                </Button>
+                <Button variant="ghost" onClick={signOut} className="hidden md:inline-flex">
+                  Déconnexion
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="ghost" onClick={() => navigate("/login")} className="hidden md:inline-flex">
+                  Se connecter
+                </Button>
+                <Button variant="hero" onClick={() => navigate("/login")}>
+                  Commencer
+                </Button>
+              </>
+            )}
             <Button variant="ghost" size="icon" className="md:hidden">
               <Menu className="h-5 w-5" />
             </Button>

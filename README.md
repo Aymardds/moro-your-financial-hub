@@ -62,6 +62,19 @@ This project is built with:
 
 ## How can I deploy this project?
 
+### Option 1 : Via Vercel (Recommandé)
+
+Voir le guide complet dans [DEPLOY_VERCEL.md](./DEPLOY_VERCEL.md)
+
+**Déploiement rapide :**
+1. Pousser le code sur GitHub
+2. Aller sur [vercel.com](https://vercel.com)
+3. Importer le projet
+4. Configurer les variables d'environnement
+5. Déployer !
+
+### Option 2 : Via Lovable
+
 Simply open [Lovable](https://lovable.dev/projects/5b4bac65-7f82-4b9c-9a28-db64cb559eef) and click on Share -> Publish.
 
 ## Can I connect a custom domain to my Lovable project?

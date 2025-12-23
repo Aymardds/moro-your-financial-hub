@@ -121,6 +121,27 @@ export default function Register() {
 
                 if (profileError) {
                     console.error('Profile creation error:', profileError);
+                } else if (role === 'cooperative') {
+                    // Envoyer un email de bienvenue/onboarding via Edge Function
+                    supabase.functions.invoke('onboarding-email', {
+                        body: {
+                            user_id: data.user.id,
+                            email: email.trim().toLowerCase(),
+                            name: name.trim(),
+                            role: 'cooperative'
+                        }
+                    }).catch(console.error);
+
+                    // Créer aussi une notification in-app
+                    supabase.from('notifications').insert({
+                        user_id: data.user.id,
+                        title: 'Bienvenue !',
+                        message: 'Veuillez compléter votre formulaire d\'identification.',
+                        type: 'info',
+                        link: '/dashboard'
+                    }).then(({ error }) => {
+                        if (error) console.error('Notification error:', error);
+                    });
                 }
 
                 toast({

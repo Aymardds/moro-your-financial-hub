@@ -1,8 +1,6 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import {
@@ -21,7 +19,6 @@ export default function Register() {
     const [email, setEmail] = useState('');
     const [name, setName] = useState('');
     const [role, setRole] = useState<string>('entrepreneur');
-    const [otp, setOtp] = useState('');
     const [step, setStep] = useState<'input' | 'otp'>('input');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
@@ -51,114 +48,26 @@ export default function Register() {
         }
 
         try {
-            const { error } = await supabase.auth.signInWithOtp({
-                email: email.trim().toLowerCase(),
-                options: {
-                    emailRedirectTo: window.location.origin,
-                    data: {
-                        name: name.trim(),
-                        role: role,
-                    },
-                },
+            // Utiliser la fonction unifiée pour générer le lien et envoyer l'email
+            const { error } = await supabase.functions.invoke('unified-onboarding', {
+                body: { email: email.trim().toLowerCase(), name: name.trim(), role: role }
             });
 
-            if (error) {
-                toast({
-                    title: 'Erreur',
-                    description: error.message || 'Impossible d\'envoyer le code OTP',
-                    variant: 'destructive',
-                });
-                setLoading(false);
-            } else {
-                toast({
-                    title: 'Code envoyé',
-                    description: 'Vérifiez votre email pour le code de vérification',
-                });
-                setStep('otp');
-                setLoading(false);
-            }
-        } catch (error) {
+            if (error) throw error;
+
+            toast({
+                title: 'Email envoyé',
+                description: 'Vérifiez votre boîte de réception pour activer votre compte.',
+            });
+
+            setStep('otp'); // On utilise ce step pour afficher l'écran "Vérifiez vos mails"
+            setLoading(false);
+
+        } catch (error: any) {
             console.error('Registration error:', error);
             toast({
                 title: 'Erreur',
-                description: 'Une erreur est survenue lors de l\'inscription',
-                variant: 'destructive',
-            });
-            setLoading(false);
-        }
-    };
-
-    const handleOTPSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-
-        try {
-            const { data, error } = await supabase.auth.verifyOtp({
-                email: email.trim().toLowerCase(),
-                token: otp,
-                type: 'email',
-            });
-
-            if (error) {
-                toast({
-                    title: 'Erreur',
-                    description: error.message || 'Code OTP invalide',
-                    variant: 'destructive',
-                });
-                setLoading(false);
-            } else if (data?.user) {
-                // Créer ou mettre à jour le profil utilisateur
-                const { error: profileError } = await supabase
-                    .from('user_profiles')
-                    .upsert({
-                        id: data.user.id,
-                        email: email.trim().toLowerCase(),
-                        name: name.trim(),
-                        role: role,
-                    }, {
-                        onConflict: 'id'
-                    });
-
-                if (profileError) {
-                    console.error('Profile creation error:', profileError);
-                } else if (role === 'cooperative') {
-                    // Envoyer un email de bienvenue/onboarding via Edge Function
-                    supabase.functions.invoke('onboarding-email', {
-                        body: {
-                            user_id: data.user.id,
-                            email: email.trim().toLowerCase(),
-                            name: name.trim(),
-                            role: 'cooperative'
-                        }
-                    }).catch(console.error);
-
-                    // Créer aussi une notification in-app
-                    supabase.from('notifications').insert({
-                        user_id: data.user.id,
-                        title: 'Bienvenue !',
-                        message: 'Veuillez compléter votre formulaire d\'identification.',
-                        type: 'info',
-                        link: '/dashboard'
-                    }).then(({ error }) => {
-                        if (error) console.error('Notification error:', error);
-                    });
-                }
-
-                toast({
-                    title: 'Inscription réussie',
-                    description: 'Redirection vers votre dashboard...',
-                });
-
-                // Redirection vers le dashboard
-                setTimeout(() => {
-                    navigate('/dashboard');
-                }, 1000);
-            }
-        } catch (error) {
-            console.error('OTP verification error:', error);
-            toast({
-                title: 'Erreur',
-                description: 'Une erreur est survenue lors de la vérification',
+                description: 'Une erreur est survenue lors de l\'envoi de l\'email de bienvenue',
                 variant: 'destructive',
             });
             setLoading(false);
@@ -178,7 +87,7 @@ export default function Register() {
                             <CardDescription>
                                 {step === 'input'
                                     ? 'Créez votre compte MORO'
-                                    : 'Entrez le code de vérification'}
+                                    : 'Vérification de votre compte'}
                             </CardDescription>
                         </div>
                         <Link to="/login">
@@ -269,47 +178,40 @@ export default function Register() {
                             </div>
                         </form>
                     ) : (
-                        <form onSubmit={handleOTPSubmit} className="space-y-4">
+                        <div className="space-y-6 text-center py-4">
+                            <div className="flex justify-center">
+                                <div className="bg-green-100 p-3 rounded-full">
+                                    <Mail className="h-8 w-8 text-green-600" />
+                                </div>
+                            </div>
                             <div className="space-y-2">
-                                <Label>Code de vérification</Label>
-                                <InputOTP
-                                    maxLength={6}
-                                    value={otp}
-                                    onChange={setOtp}
-                                >
-                                    <InputOTPGroup>
-                                        <InputOTPSlot index={0} />
-                                        <InputOTPSlot index={1} />
-                                        <InputOTPSlot index={2} />
-                                        <InputOTPSlot index={3} />
-                                        <InputOTPSlot index={4} />
-                                        <InputOTPSlot index={5} />
-                                    </InputOTPGroup>
-                                </InputOTP>
-                                <p className="text-xs text-muted-foreground text-center">
-                                    Entrez le code à 6 chiffres reçu par email
+                                <h2 className="text-xl font-bold tracking-tight">Vérifiez votre boîte mail</h2>
+                                <p className="text-sm text-muted-foreground">
+                                    Un lien d'activation sécurisé a été envoyé à <br />
+                                    <strong className="text-foreground">{email}</strong>.
                                 </p>
                             </div>
-                            <div className="flex gap-2">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="flex-1"
-                                    onClick={() => {
-                                        setStep('input');
-                                        setOtp('');
-                                    }}
-                                >
-                                    Retour
-                                </Button>
-                                <Button type="submit" className="flex-1" disabled={loading || otp.length !== 6}>
-                                    {loading ? 'Vérification...' : 'Vérifier'}
-                                </Button>
+                            <div className="bg-blue-50 p-4 rounded-lg text-left border border-blue-100">
+                                <p className="text-xs text-blue-800 font-semibold mb-1 uppercase tracking-wider">Prochaines étapes :</p>
+                                <ul className="text-sm text-blue-700 list-disc list-inside space-y-1">
+                                    <li>Ouvrez l'email reçu (vérifiez les spams)</li>
+                                    <li>Cliquez sur <strong>"Activer mon compte"</strong></li>
+                                    <li>Vous serez automatiquement connecté</li>
+                                </ul>
                             </div>
-                        </form>
+                            <Button
+                                variant="outline"
+                                className="w-full"
+                                onClick={() => setStep('input')}
+                            >
+                                <ArrowLeft className="mr-2 h-4 w-4" />
+                                Retour à l'inscription
+                            </Button>
+                        </div>
                     )}
                 </CardContent>
             </Card>
         </div>
     );
 }
+

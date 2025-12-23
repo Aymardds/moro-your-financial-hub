@@ -39,25 +39,67 @@ serve(async (req) => {
         }
 
         // Email content
-        const loginLink = "https://moro-your-financial-hub-1.vercel.app/login"; // Replace with real URL in production
+        const loginLink = "https://moro-your-financial-hub-1.vercel.app/login";
 
         const html = `
-      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-        <h2 style="color: #0066cc;">Bienvenue sur MORO, ${name} !</h2>
-        <p>Merci de vous être inscrit en tant que <strong>Coopérative</strong>.</p>
-        <p>Pour activer pleinement votre compte et accéder à toutes nos fonctionnalités (gestion de membres, prêts, etc.), vous devez compléter votre formulaire d'identification.</p>
-        <div style="margin: 30px 0; text-align: center;">
-          <a href="${loginLink}" style="background-color: #0066cc; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-            Compléter mon Identification
-          </a>
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 0; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background-color: #ffffff;">
+        <div style="background-color: #0066cc; padding: 30px; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Bienvenue sur MORO</h1>
         </div>
-        <p>Ce formulaire se compose de 3 étapes simples :</p>
-        <ol>
-          <li>Informations Générales</li>
-          <li>Informations sur les Adhérents</li>
-          <li>Composition du Bureau / Management</li>
-        </ol>
-        <p>À bientôt,<br>L'équipe MORO</p>
+        
+        <div style="padding: 40px 30px; color: #1e293b; line-height: 1.6;">
+          <h2 style="color: #0f172a; margin-top: 0;">Bonjour ${name},</h2>
+          <p style="font-size: 16px;">Nous sommes ravis de vous compter parmi nous ! Votre compte <strong>Coopérative</strong> a été créé avec succès.</p>
+          
+          <div style="background-color: #f8fafc; border-left: 4px solid #0066cc; padding: 20px; margin: 25px 0;">
+            <p style="margin: 0; font-weight: 600; color: #0066cc;">Action Requise : Identification de votre organisation</p>
+            <p style="margin: 10px 0 0 0; font-size: 14px; color: #64748b;">
+              Pour respecter les normes réglementaires et activer votre accès aux services financiers, vous devez compléter votre formulaire d'identification numérique.
+            </p>
+          </div>
+
+          <p style="font-size: 15px;">Le formulaire se compose de <strong>3 étapes essentielles</strong> :</p>
+          
+          <table style="width: 100%; margin-bottom: 25px;">
+            <tr>
+              <td style="padding: 10px 0;">
+                <span style="background-color: #0066cc; color: white; width: 24px; height: 24px; display: inline-block; text-align: center; border-radius: 50%; margin-right: 10px; font-size: 14px; line-height: 24px;">1</span>
+                <strong>Informations Générales</strong> (Siège, Zone d'activité, etc.)
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 10px 0;">
+                <span style="background-color: #0066cc; color: white; width: 24px; height: 24px; display: inline-block; text-align: center; border-radius: 50%; margin-right: 10px; font-size: 14px; line-height: 24px;">2</span>
+                <strong>Données des Adhérents</strong> (Nombre de membres, répartition)
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 10px 0;">
+                <span style="background-color: #0066cc; color: white; width: 24px; height: 24px; display: inline-block; text-align: center; border-radius: 50%; margin-right: 10px; font-size: 14px; line-height: 24px;">3</span>
+                <strong>Gouvernance</strong> (Membres du Bureau et Management)
+              </td>
+            </tr>
+          </table>
+
+          <div style="text-align: center; margin: 40px 0;">
+            <a href="${loginLink}" style="background-color: #0066cc; color: #ffffff; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+              Ouvrir le Formulaire d'Identification
+            </a>
+            <p style="font-size: 12px; color: #94a3b8; margin-top: 15px;">(Vous devrez vous connecter pour accéder au formulaire sécurisé)</p>
+          </div>
+
+          <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 40px 0;">
+          
+          <p style="font-size: 14px; color: #64748b;">
+            <strong>Pourquoi un lien ?</strong> Pour des raisons de sécurité et pour vous permettre de joindre des documents officiels, le formulaire doit être rempli sur notre plateforme sécurisée.
+          </p>
+          
+          <p style="margin-top: 30px;">À très bientôt,<br><strong>L'équipe MORO Support</strong></p>
+        </div>
+        
+        <div style="background-color: #f1f5f9; padding: 20px; text-align: center; font-size: 12px; color: #94a3b8;">
+          <p>&copy; 2023 MORO Financial Hub. Tous droits réservés.</p>
+        </div>
       </div>
     `;
 

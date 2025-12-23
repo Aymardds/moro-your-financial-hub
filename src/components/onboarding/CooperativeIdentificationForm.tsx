@@ -14,21 +14,17 @@ export function CooperativeIdentificationForm() {
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
-        basic_info: {
+        applicant: {
+            name: user?.user_metadata?.name || '',
+            role: '',
+        },
+        cooperative: {
             name: '',
             agrement_number: '',
             activity_type: '',
             zone: '',
-        },
-        membership_info: {
             adherence_count: '',
-            intervals: '',
-        },
-        management_info: {
-            manager_name: '',
-            secretary_name: '',
-            president_name: '',
-        },
+        }
     });
 
     const updateFormData = (section: keyof typeof formData, field: string, value: string) => {
@@ -51,15 +47,21 @@ export function CooperativeIdentificationForm() {
                 .insert({
                     user_id: user.id,
                     organization_type: 'cooperative',
-                    basic_info: formData.basic_info,
-                    membership_info: formData.membership_info,
-                    management_info: formData.management_info,
+                    applicant_info: formData.applicant,
+                    basic_info: {
+                        name: formData.cooperative.name,
+                        agrement_number: formData.cooperative.agrement_number,
+                        activity_type: formData.cooperative.activity_type,
+                        zone: formData.cooperative.zone,
+                    },
+                    membership_info: {
+                        adherence_count: formData.cooperative.adherence_count,
+                    },
                     status: 'submitted'
                 });
 
             if (error) throw error;
 
-            // Update local user profile status to pending_approval (optimistic update or triggering a re-fetch would be ideal)
             await supabase
                 .from('user_profiles')
                 .update({ onboarding_status: 'pending_approval' })
@@ -70,7 +72,6 @@ export function CooperativeIdentificationForm() {
                 description: "Votre dossier a été transmis à l'administration pour validation.",
             });
 
-            // Reload to reflect status change in main dashboard
             window.location.reload();
 
         } catch (error: any) {
@@ -94,9 +95,8 @@ export function CooperativeIdentificationForm() {
                 <CardHeader>
                     <CardTitle>Identification de la Coopérative</CardTitle>
                     <CardDescription>
-                        Étape {step} sur 3: {
-                            step === 1 ? "Informations Générales" :
-                                step === 2 ? "Adhérents" : "Gestion & Administration"
+                        Étape {step} sur 2 : {
+                            step === 1 ? "Identification du demandeur" : "Informations sur la coopérative"
                         }
                     </CardDescription>
                 </CardHeader>
@@ -104,36 +104,25 @@ export function CooperativeIdentificationForm() {
                     {step === 1 && (
                         <div className="space-y-4">
                             <div className="space-y-2">
-                                <Label>Nom de la coopérative</Label>
+                                <Label>Nom complet du demandeur</Label>
                                 <Input
-                                    value={formData.basic_info.name}
-                                    onChange={(e) => updateFormData('basic_info', 'name', e.target.value)}
-                                    placeholder="Ex: Coopérative Agricole de..."
+                                    value={formData.applicant.name}
+                                    onChange={(e) => updateFormData('applicant', 'name', e.target.value)}
+                                    placeholder="Votre nom"
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>Numéro d'agrément</Label>
+                                <Label>Fonction au sein de la coopérative</Label>
                                 <Input
-                                    value={formData.basic_info.agrement_number}
-                                    onChange={(e) => updateFormData('basic_info', 'agrement_number', e.target.value)}
-                                    placeholder="Numéro officiel"
+                                    value={formData.applicant.role}
+                                    onChange={(e) => updateFormData('applicant', 'role', e.target.value)}
+                                    placeholder="Ex: Président, Gérant, Secrétaire..."
                                 />
                             </div>
-                            <div className="space-y-2">
-                                <Label>Type d'activité</Label>
-                                <Input
-                                    value={formData.basic_info.activity_type}
-                                    onChange={(e) => updateFormData('basic_info', 'activity_type', e.target.value)}
-                                    placeholder="Ex: Cacao, Café, Anacarde..."
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Zone d'activité</Label>
-                                <Input
-                                    value={formData.basic_info.zone}
-                                    onChange={(e) => updateFormData('basic_info', 'zone', e.target.value)}
-                                    placeholder="Région, Ville, Localité"
-                                />
+                            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                                <p className="text-sm text-blue-800">
+                                    <strong>Note :</strong> Ces informations nous permettent de savoir qui au sein de l'organisation initie cette demande de services financiers.
+                                </p>
                             </div>
                         </div>
                     )}
@@ -141,46 +130,46 @@ export function CooperativeIdentificationForm() {
                     {step === 2 && (
                         <div className="space-y-4">
                             <div className="space-y-2">
-                                <Label>Nombre d'adhérents</Label>
+                                <Label>Nom de la coopérative</Label>
                                 <Input
-                                    value={formData.membership_info.adherence_count}
-                                    onChange={(e) => updateFormData('membership_info', 'adherence_count', e.target.value)}
-                                    placeholder="Ex: 150"
-                                    type="number"
+                                    value={formData.cooperative.name}
+                                    onChange={(e) => updateFormData('cooperative', 'name', e.target.value)}
+                                    placeholder="Ex: Coopérative Agricole de..."
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label>Numéro d'agrément</Label>
+                                    <Input
+                                        value={formData.cooperative.agrement_number}
+                                        onChange={(e) => updateFormData('cooperative', 'agrement_number', e.target.value)}
+                                        placeholder="Numéro officiel"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Nombre d'adhérents</Label>
+                                    <Input
+                                        value={formData.cooperative.adherence_count}
+                                        onChange={(e) => updateFormData('cooperative', 'adherence_count', e.target.value)}
+                                        placeholder="Ex: 150"
+                                        type="number"
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Type d'activité principale</Label>
+                                <Input
+                                    value={formData.cooperative.activity_type}
+                                    onChange={(e) => updateFormData('cooperative', 'activity_type', e.target.value)}
+                                    placeholder="Ex: Café-Cacao, Maraicher, etc."
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>Intervalle de membres (optionnel)</Label>
+                                <Label>Zone d'activité / Localisation</Label>
                                 <Input
-                                    value={formData.membership_info.intervals}
-                                    onChange={(e) => updateFormData('membership_info', 'intervals', e.target.value)}
-                                    placeholder="Ex: 50-100 membres actifs"
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    {step === 3 && (
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <Label>Nom du Président</Label>
-                                <Input
-                                    value={formData.management_info.president_name}
-                                    onChange={(e) => updateFormData('management_info', 'president_name', e.target.value)}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Nom du Secrétaire Général</Label>
-                                <Input
-                                    value={formData.management_info.secretary_name}
-                                    onChange={(e) => updateFormData('management_info', 'secretary_name', e.target.value)}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Nom du Gérant (optionnel)</Label>
-                                <Input
-                                    value={formData.management_info.manager_name}
-                                    onChange={(e) => updateFormData('management_info', 'manager_name', e.target.value)}
+                                    value={formData.cooperative.zone}
+                                    onChange={(e) => updateFormData('cooperative', 'zone', e.target.value)}
+                                    placeholder="Région, Ville, District"
                                 />
                             </div>
                         </div>
@@ -193,10 +182,12 @@ export function CooperativeIdentificationForm() {
                         <div></div>
                     )}
 
-                    {step < 3 ? (
-                        <Button onClick={nextStep}>Suivant</Button>
+                    {step < 2 ? (
+                        <Button onClick={nextStep} disabled={!formData.applicant.name || !formData.applicant.role}>
+                            Suivant
+                        </Button>
                     ) : (
-                        <Button onClick={handleSubmit} disabled={loading}>
+                        <Button onClick={handleSubmit} disabled={loading || !formData.cooperative.name}>
                             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Soumettre le dossier
                         </Button>

@@ -3,45 +3,45 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
 const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 interface EmailRequest {
-    user_id: string;
-    email: string;
-    name: string;
-    role: string;
+  user_id: string;
+  email: string;
+  name: string;
+  role: string;
 }
 
 serve(async (req) => {
-    // Handle CORS
-    if (req.method === "OPTIONS") {
-        return new Response(null, { headers: corsHeaders });
+  // Handle CORS
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { email, name, role } = await req.json() as EmailRequest;
+
+    if (role !== "cooperative") {
+      return new Response(JSON.stringify({ message: "Only cooperatives receive this email" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
     }
 
-    try {
-        const { email, name, role } = await req.json() as EmailRequest;
+    if (!RESEND_API_KEY) {
+      console.error("RESEND_API_KEY is not set");
+      return new Response(JSON.stringify({ error: "Email configuration missing" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500,
+      });
+    }
 
-        if (role !== "cooperative") {
-            return new Response(JSON.stringify({ message: "Only cooperatives receive this email" }), {
-                headers: { ...corsHeaders, "Content-Type": "application/json" },
-                status: 200,
-            });
-        }
+    // Email content
+    const loginLink = "https://moro-your-financial-hub-1.vercel.app/login";
 
-        if (!RESEND_API_KEY) {
-            console.error("RESEND_API_KEY is not set");
-            return new Response(JSON.stringify({ error: "Email configuration missing" }), {
-                headers: { ...corsHeaders, "Content-Type": "application/json" },
-                status: 500,
-            });
-        }
-
-        // Email content
-        const loginLink = "https://moro-your-financial-hub-1.vercel.app/login";
-
-        const html = `
+    const html = `
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 0; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background-color: #ffffff;">
         <div style="background-color: #0066cc; padding: 30px; text-align: center;">
           <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Bienvenue sur MORO</h1>
@@ -58,25 +58,19 @@ serve(async (req) => {
             </p>
           </div>
 
-          <p style="font-size: 15px;">Le formulaire se compose de <strong>3 étapes essentielles</strong> :</p>
+          <p style="font-size: 15px;">Le formulaire se compose de <strong>2 étapes simples</strong> :</p>
           
           <table style="width: 100%; margin-bottom: 25px;">
             <tr>
               <td style="padding: 10px 0;">
                 <span style="background-color: #0066cc; color: white; width: 24px; height: 24px; display: inline-block; text-align: center; border-radius: 50%; margin-right: 10px; font-size: 14px; line-height: 24px;">1</span>
-                <strong>Informations Générales</strong> (Siège, Zone d'activité, etc.)
+                <strong>Identification du demandeur</strong> (Votre identité et fonction)
               </td>
             </tr>
             <tr>
               <td style="padding: 10px 0;">
                 <span style="background-color: #0066cc; color: white; width: 24px; height: 24px; display: inline-block; text-align: center; border-radius: 50%; margin-right: 10px; font-size: 14px; line-height: 24px;">2</span>
-                <strong>Données des Adhérents</strong> (Nombre de membres, répartition)
-              </td>
-            </tr>
-            <tr>
-              <td style="padding: 10px 0;">
-                <span style="background-color: #0066cc; color: white; width: 24px; height: 24px; display: inline-block; text-align: center; border-radius: 50%; margin-right: 10px; font-size: 14px; line-height: 24px;">3</span>
-                <strong>Gouvernance</strong> (Membres du Bureau et Management)
+                <strong>Informations sur la coopérative</strong> (Détails officiels et activité)
               </td>
             </tr>
           </table>
@@ -103,32 +97,32 @@ serve(async (req) => {
       </div>
     `;
 
-        const SENDER_EMAIL = Deno.env.get("SENDER_EMAIL") || "onboarding@updates.moro.com";
+    const SENDER_EMAIL = Deno.env.get("SENDER_EMAIL") || "onboarding@updates.moro.com";
 
-        const res = await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${RESEND_API_KEY}`,
-            },
-            body: JSON.stringify({
-                from: `MORO <${SENDER_EMAIL}>`,
-                to: [email],
-                subject: "Action Requise : Complétez votre identification MORO",
-                html: html,
-            }),
-        });
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: `MORO <${SENDER_EMAIL}>`,
+        to: [email],
+        subject: "Action Requise : Complétez votre identification MORO",
+        html: html,
+      }),
+    });
 
-        const data = await res.json();
-        return new Response(JSON.stringify(data), {
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+    const data = await res.json();
+    return new Response(JSON.stringify(data), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
 
-    } catch (error) {
-        return new Response(JSON.stringify({ error: error.message }), {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-    }
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 });

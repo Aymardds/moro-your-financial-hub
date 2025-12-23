@@ -7,11 +7,16 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 import DashboardEntrepreneur from "./pages/DashboardEntrepreneur";
 import DashboardAgent from "./pages/DashboardAgent";
 import DashboardCooperative from "./pages/DashboardCooperative";
 import DashboardInstitution from "./pages/DashboardInstitution";
+import DashboardAdmin from "./pages/DashboardAdmin";
 import DashboardSuperAdmin from "./pages/DashboardSuperAdmin";
+import UsersEntrepreneurs from "./pages/UsersEntrepreneurs";
+import OrganizationsCooperatives from "./pages/OrganizationsCooperatives";
+import OrganizationsInstitutions from "./pages/OrganizationsInstitutions";
 import Subscription from "./pages/Subscription";
 import FinancingApplication from "./pages/FinancingApplication";
 import Unauthorized from "./pages/Unauthorized";
@@ -40,6 +45,8 @@ const DashboardRouter = () => {
       return <DashboardCooperative />;
     case 'institution':
       return <DashboardInstitution />;
+    case 'admin':
+      return <DashboardAdmin />;
     case 'superAdmin':
       return <DashboardSuperAdmin />;
     default:
@@ -52,11 +59,12 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
             <Route
               path="/dashboard"
               element={
@@ -78,6 +86,30 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['entrepreneur']}>
                   <FinancingApplication />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/users/entrepreneurs"
+              element={
+                <ProtectedRoute allowedRoles={['superAdmin', 'admin']}>
+                  <UsersEntrepreneurs />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/organizations/cooperatives"
+              element={
+                <ProtectedRoute allowedRoles={['superAdmin', 'admin']}>
+                  <OrganizationsCooperatives />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/organizations/institutions"
+              element={
+                <ProtectedRoute allowedRoles={['superAdmin', 'admin']}>
+                  <OrganizationsInstitutions />
                 </ProtectedRoute>
               }
             />

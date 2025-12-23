@@ -6,6 +6,7 @@ import { Users, TrendingUp, DollarSign, CheckCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { DashboardLayout } from '@/components/dashboard-layout';
 
 interface Client {
   id: string;
@@ -95,165 +96,145 @@ export default function DashboardAgent() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">Dashboard Agent</h1>
-              <p className="text-sm text-muted-foreground">
-                Gestion des clients et transactions
-              </p>
+    <DashboardLayout title="Dashboard Agent" description="Gestion des clients et transactions">
+      {/* Statistiques */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Clients</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalClients}</div>
+            <p className="text-xs text-muted-foreground">Clients actifs</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Transactions</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalTransactions}</div>
+            <p className="text-xs text-muted-foreground">Total transactions</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Volume</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {stats.totalVolume.toLocaleString('fr-FR')} FCFA
             </div>
-            <Button variant="outline" onClick={signOut}>
-              Déconnexion
-            </Button>
-          </div>
-        </div>
-      </header>
+            <p className="text-xs text-muted-foreground">Volume total</p>
+          </CardContent>
+        </Card>
 
-      <div className="container mx-auto px-4 py-6">
-        {/* Statistiques */}
-        <div className="grid gap-4 md:grid-cols-4 mb-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">En attente</CardTitle>
+            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.pendingTransactions}</div>
+            <p className="text-xs text-muted-foreground">Transactions en attente</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Tabs defaultValue="clients" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="clients">Clients</TabsTrigger>
+          <TabsTrigger value="transactions">Transactions</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="clients">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Clients</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+            <CardHeader>
+              <CardTitle>Mes Clients</CardTitle>
+              <CardDescription>Liste de vos clients</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalClients}</div>
-              <p className="text-xs text-muted-foreground">Clients actifs</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Transactions</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalTransactions}</div>
-              <p className="text-xs text-muted-foreground">Total transactions</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Volume</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {stats.totalVolume.toLocaleString('fr-FR')} FCFA
-              </div>
-              <p className="text-xs text-muted-foreground">Volume total</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">En attente</CardTitle>
-              <CheckCircle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.pendingTransactions}</div>
-              <p className="text-xs text-muted-foreground">Transactions en attente</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Tabs defaultValue="clients" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="clients">Clients</TabsTrigger>
-            <TabsTrigger value="transactions">Transactions</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="clients">
-            <Card>
-              <CardHeader>
-                <CardTitle>Mes Clients</CardTitle>
-                <CardDescription>Liste de vos clients</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="text-center py-8">Chargement...</div>
-                ) : clients.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Aucun client enregistré
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {clients.map((client) => (
-                      <div
-                        key={client.id}
-                        className="flex items-center justify-between p-3 border rounded-lg"
-                      >
-                        <div>
-                          <p className="font-medium">{client.name}</p>
-                          <p className="text-sm text-muted-foreground">{client.phone}</p>
-                        </div>
-                        <Button variant="outline" size="sm">
-                          Voir détails
-                        </Button>
+              {loading ? (
+                <div className="text-center py-8">Chargement...</div>
+              ) : clients.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Aucun client enregistré
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {clients.map((client) => (
+                    <div
+                      key={client.id}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div>
+                        <p className="font-medium">{client.name}</p>
+                        <p className="text-sm text-muted-foreground">{client.phone}</p>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+                      <Button variant="outline" size="sm">
+                        Voir détails
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          <TabsContent value="transactions">
-            <Card>
-              <CardHeader>
-                <CardTitle>Transactions</CardTitle>
-                <CardDescription>Historique des transactions</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="text-center py-8">Chargement...</div>
-                ) : transactions.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Aucune transaction
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {transactions.map((transaction) => (
-                      <div
-                        key={transaction.id}
-                        className="flex items-center justify-between p-3 border rounded-lg"
-                      >
-                        <div>
-                          <p className="font-medium">
-                            {transaction.amount.toLocaleString('fr-FR')} FCFA
-                          </p>
-                          <p className="text-sm text-muted-foreground">{transaction.type}</p>
-                        </div>
-                        <span
-                          className={`text-xs px-2 py-1 rounded ${
-                            transaction.status === 'completed'
-                              ? 'bg-green-100 text-green-800'
-                              : transaction.status === 'pending'
+        <TabsContent value="transactions">
+          <Card>
+            <CardHeader>
+              <CardTitle>Transactions</CardTitle>
+              <CardDescription>Historique des transactions</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="text-center py-8">Chargement...</div>
+              ) : transactions.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Aucune transaction
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {transactions.map((transaction) => (
+                    <div
+                      key={transaction.id}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div>
+                        <p className="font-medium">
+                          {transaction.amount.toLocaleString('fr-FR')} FCFA
+                        </p>
+                        <p className="text-sm text-muted-foreground">{transaction.type}</p>
+                      </div>
+                      <span
+                        className={`text-xs px-2 py-1 rounded ${transaction.status === 'completed'
+                            ? 'bg-green-100 text-green-800'
+                            : transaction.status === 'pending'
                               ? 'bg-yellow-100 text-yellow-800'
                               : 'bg-red-100 text-red-800'
                           }`}
-                        >
-                          {transaction.status === 'completed'
-                            ? 'Terminé'
-                            : transaction.status === 'pending'
+                      >
+                        {transaction.status === 'completed'
+                          ? 'Terminé'
+                          : transaction.status === 'pending'
                             ? 'En attente'
                             : 'Échoué'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
-    </div>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </DashboardLayout>
   );
 }
-

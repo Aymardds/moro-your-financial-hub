@@ -30,6 +30,10 @@ interface KYCValidation {
   business_registration_url: string;
   tax_certificate_url: string;
   proof_of_address_url: string;
+  // New fields
+  matricule?: string;
+  gps_coordinates?: string;
+  photo_id_url?: string;
 }
 
 interface KYCValidationListProps {
@@ -44,12 +48,7 @@ export const KYCValidationList = ({ entityType, canApprove = false }: KYCValidat
   const [selectedKYC, setSelectedKYC] = useState<KYCValidation | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [reviewNotes, setReviewNotes] = useState('');
-
-  const getDocumentUrl = (filePath: string) => {
-    if (!filePath) return null;
-    const { data } = supabase.storage.from('kyc-documents').getPublicUrl(filePath);
-    return data.publicUrl;
-  };
+  const [signedUrls, setSignedUrls] = useState<Record<string, { identity?: string; business_registration?: string; tax_certificate?: string; proof_of_address?: string; photo_id?: string }>>({});
 
   useEffect(() => {
     fetchKYCValidations();
@@ -70,7 +69,9 @@ export const KYCValidationList = ({ entityType, canApprove = false }: KYCValidat
 
       if (error) throw error;
 
-      setKycValidations(data || []);
+      const list = data || [];
+      setKycValidations(list);
+      await buildSignedUrls(list);
     } catch (error: any) {
       console.error('Error fetching KYC validations:', error);
       toast({
@@ -81,6 +82,35 @@ export const KYCValidationList = ({ entityType, canApprove = false }: KYCValidat
     } finally {
       setLoading(false);
     }
+  };
+
+  const buildSignedUrls = async (items: KYCValidation[]) => {
+    const map: Record<string, { identity?: string; business_registration?: string; tax_certificate?: string; proof_of_address?: string; photo_id?: string }> = {};
+    for (const kyc of items) {
+      const entry: { identity?: string; business_registration?: string; tax_certificate?: string; proof_of_address?: string; photo_id?: string } = {};
+      if (kyc.identity_document_url) {
+        const { data } = await supabase.storage.from('kyc-documents').createSignedUrl(kyc.identity_document_url, 3600);
+        if (data?.signedUrl) entry.identity = data.signedUrl;
+      }
+      if (kyc.business_registration_url) {
+        const { data } = await supabase.storage.from('kyc-documents').createSignedUrl(kyc.business_registration_url, 3600);
+        if (data?.signedUrl) entry.business_registration = data.signedUrl;
+      }
+      if (kyc.tax_certificate_url) {
+        const { data } = await supabase.storage.from('kyc-documents').createSignedUrl(kyc.tax_certificate_url, 3600);
+        if (data?.signedUrl) entry.tax_certificate = data.signedUrl;
+      }
+      if (kyc.proof_of_address_url) {
+        const { data } = await supabase.storage.from('kyc-documents').createSignedUrl(kyc.proof_of_address_url, 3600);
+        if (data?.signedUrl) entry.proof_of_address = data.signedUrl;
+      }
+      if (kyc.photo_id_url) {
+        const { data } = await supabase.storage.from('kyc-documents').createSignedUrl(kyc.photo_id_url, 3600);
+        if (data?.signedUrl) entry.photo_id = data.signedUrl;
+      }
+      map[kyc.id] = entry;
+    }
+    setSignedUrls(map);
   };
 
   const handleApprove = async (kycId: string) => {
@@ -213,6 +243,19 @@ export const KYCValidationList = ({ entityType, canApprove = false }: KYCValidat
                   <p className="text-sm font-medium">Informations</p>
                   <div className="mt-2 space-y-1 text-sm text-muted-foreground">
                     <p>Nom: {kyc.full_name}</p>
+                    {kyc.matricule && <p className="font-semibold text-primary">Matricule: {kyc.matricule}</p>}
+                    {kyc.gps_coordinates && (
+                      <p>
+                        GPS: <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${kyc.gps_coordinates}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline text-blue-500 hover:text-blue-700"
+                        >
+                          {kyc.gps_coordinates}
+                        </a>
+                      </p>
+                    )}
                     {kyc.business_name && <p>Entreprise: {kyc.business_name}</p>}
                     {kyc.registration_number && (
                       <p>N° Enregistrement: {kyc.registration_number}</p>
@@ -223,20 +266,30 @@ export const KYCValidationList = ({ entityType, canApprove = false }: KYCValidat
                 <div>
                   <p className="text-sm font-medium">Documents</p>
                   <div className="mt-2 space-y-2">
-                    {kyc.identity_document_url && getDocumentUrl(kyc.identity_document_url) && (
+                    {signedUrls[kyc.id]?.photo_id && (
+                      <div className="mb-2">
+                        <img
+                          src={signedUrls[kyc.id]!.photo_id!}
+                          alt="Photo Identité"
+                          className="h-24 w-24 object-cover rounded-md border"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">Photo d'identité</p>
+                      </div>
+                    )}
+                    {signedUrls[kyc.id]?.identity && (
                       <a
-                        href={getDocumentUrl(kyc.identity_document_url)!}
+                        href={signedUrls[kyc.id]!.identity!}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-2 text-sm text-primary hover:underline"
                       >
                         <FileText className="h-4 w-4" />
-                        Pièce d'identité
+                        Document d'identité
                       </a>
                     )}
-                    {kyc.business_registration_url && getDocumentUrl(kyc.business_registration_url) && (
+                    {signedUrls[kyc.id]?.business_registration && (
                       <a
-                        href={getDocumentUrl(kyc.business_registration_url)!}
+                        href={signedUrls[kyc.id]!.business_registration!}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-2 text-sm text-primary hover:underline"
@@ -245,9 +298,9 @@ export const KYCValidationList = ({ entityType, canApprove = false }: KYCValidat
                         Document d'enregistrement
                       </a>
                     )}
-                    {kyc.proof_of_address_url && getDocumentUrl(kyc.proof_of_address_url) && (
+                    {signedUrls[kyc.id]?.proof_of_address && (
                       <a
-                        href={getDocumentUrl(kyc.proof_of_address_url)!}
+                        href={signedUrls[kyc.id]!.proof_of_address!}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-2 text-sm text-primary hover:underline"

@@ -3,7 +3,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 
-export type UserRole = 'entrepreneur' | 'agent' | 'cooperative' | 'institution' | 'superAdmin';
+export type UserRole = 'entrepreneur' | 'agent' | 'cooperative' | 'institution' | 'admin' | 'superAdmin';
 
 interface AuthContextType {
   user: User | null;
@@ -70,7 +70,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           .insert([{ id: userId, role: 'entrepreneur' }])
           .select()
           .single();
-        
+
         if (newProfile) {
           setRole(newProfile.role as UserRole);
         }
@@ -84,19 +84,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       // S'assurer que le numéro est au format E.164 (sans espaces)
       const cleanedPhone = phone.replace(/\s/g, '').trim();
-      
-      console.log('Signing in with phone:', cleanedPhone);
-      
+
       const { error } = await supabase.auth.signInWithOtp({
         phone: cleanedPhone,
         options: {
           channel: 'sms',
         },
       });
-      
+
       if (error) {
         console.error('Supabase OTP error:', error);
-        
+
         // Message d'erreur plus explicite pour le provider non configuré
         if (error.message?.includes('Unsupported phone provider') || error.message?.includes('provider')) {
           return {
@@ -108,7 +106,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           };
         }
       }
-      
+
       return { error };
     } catch (error) {
       console.error('Sign in error:', error);
@@ -120,7 +118,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       // S'assurer que le numéro est au format E.164 (sans espaces)
       const cleanedPhone = phone.replace(/\s/g, '').trim();
-      
+
       const { data, error } = await supabase.auth.verifyOtp({
         phone: cleanedPhone,
         token: token,
@@ -145,20 +143,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signInWithEmail = async (email: string) => {
     try {
       const cleanedEmail = email.trim().toLowerCase();
-      
-      console.log('Signing in with email:', cleanedEmail);
-      
+
       const { error } = await supabase.auth.signInWithOtp({
         email: cleanedEmail,
         options: {
           emailRedirectTo: window.location.origin,
         },
       });
-      
+
       if (error) {
         console.error('Supabase Email OTP error:', error);
       }
-      
+
       return { error };
     } catch (error) {
       console.error('Sign in with email error:', error);
@@ -169,7 +165,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const verifyEmailOTP = async (email: string, token: string) => {
     try {
       const cleanedEmail = email.trim().toLowerCase();
-      
+
       const { data, error } = await supabase.auth.verifyOtp({
         email: cleanedEmail,
         token: token,
@@ -186,7 +182,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }, {
             onConflict: 'id'
           });
-        
+
         await fetchUserRole(data.user.id);
       }
 

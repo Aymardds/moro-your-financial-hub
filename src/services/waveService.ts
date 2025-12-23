@@ -1,8 +1,3 @@
-/**
- * Service d'intégration Wave Mobile Money
- * Documentation: https://developer.wave.com/
- */
-
 interface WavePaymentRequest {
   amount: number;
   phone: string;
@@ -25,10 +20,7 @@ interface WaveSubscriptionRequest {
   frequency: 'monthly' | 'yearly';
 }
 
-// Configuration Wave (à remplacer par vos vraies clés API)
-const WAVE_API_KEY = import.meta.env.VITE_WAVE_API_KEY || '';
-const WAVE_MERCHANT_KEY = import.meta.env.VITE_WAVE_MERCHANT_KEY || '';
-const WAVE_API_URL = 'https://api.wave.com/v1';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
 
 /**
  * Initialiser un paiement Wave
@@ -37,19 +29,16 @@ export const initiateWavePayment = async (
   request: WavePaymentRequest
 ): Promise<WavePaymentResponse> => {
   try {
-    // En production, vous feriez un appel API réel à Wave
-    // Pour l'instant, on simule une réponse
-    const response = await fetch(`${WAVE_API_URL}/payments`, {
+    const endpoint = `${BACKEND_URL}/api/wave/payments`;
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${WAVE_API_KEY}`,
       },
       body: JSON.stringify({
         amount: request.amount,
         phone: request.phone,
         description: request.description,
-        merchant_key: WAVE_MERCHANT_KEY,
         reference: request.reference || `MORO-${Date.now()}`,
       }),
     });
@@ -60,16 +49,16 @@ export const initiateWavePayment = async (
 
     const data = await response.json();
     return {
-      success: true,
+      success: !!data.success || true,
       transaction_id: data.transaction_id,
       status: data.status,
-      message: 'Paiement initialisé avec succès',
+      message: data.message || 'Paiement initialisé avec succès',
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Wave payment error:', error);
     return {
       success: false,
-      error: error.message || 'Erreur lors du paiement Wave',
+      error: error instanceof Error ? error.message : 'Erreur lors du paiement Wave',
     };
   }
 };
@@ -81,11 +70,9 @@ export const checkWavePaymentStatus = async (
   transactionId: string
 ): Promise<WavePaymentResponse> => {
   try {
-    const response = await fetch(`${WAVE_API_URL}/payments/${transactionId}`, {
+    const endpoint = `${BACKEND_URL}/api/wave/payments/${transactionId}`;
+    const response = await fetch(endpoint, {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${WAVE_API_KEY}`,
-      },
     });
 
     if (!response.ok) {
@@ -94,16 +81,16 @@ export const checkWavePaymentStatus = async (
 
     const data = await response.json();
     return {
-      success: data.status === 'completed',
+      success: !!data.success || data.status === 'completed',
       transaction_id: transactionId,
       status: data.status,
-      message: data.status === 'completed' ? 'Paiement réussi' : 'Paiement en attente',
+      message: data.message || (data.status === 'completed' ? 'Paiement réussi' : 'Paiement en attente'),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Wave payment status error:', error);
     return {
       success: false,
-      error: error.message || 'Erreur lors de la vérification',
+      error: error instanceof Error ? error.message : 'Erreur lors de la vérification',
     };
   }
 };
@@ -115,18 +102,17 @@ export const createWaveSubscription = async (
   request: WaveSubscriptionRequest
 ): Promise<WavePaymentResponse> => {
   try {
-    const response = await fetch(`${WAVE_API_URL}/subscriptions`, {
+    const endpoint = `${BACKEND_URL}/api/wave/subscriptions`;
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${WAVE_API_KEY}`,
       },
       body: JSON.stringify({
         phone: request.phone,
         plan_id: request.plan_id,
         amount: request.amount,
         frequency: request.frequency,
-        merchant_key: WAVE_MERCHANT_KEY,
       }),
     });
 
@@ -136,16 +122,16 @@ export const createWaveSubscription = async (
 
     const data = await response.json();
     return {
-      success: true,
+      success: !!data.success || true,
       transaction_id: data.subscription_id,
-      status: 'active',
-      message: 'Abonnement créé avec succès',
+      status: data.status || 'active',
+      message: data.message || 'Abonnement créé avec succès',
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Wave subscription error:', error);
     return {
       success: false,
-      error: error.message || 'Erreur lors de la création de l\'abonnement',
+      error: error instanceof Error ? error.message : 'Erreur lors de la création de l\'abonnement',
     };
   }
 };
@@ -157,11 +143,9 @@ export const cancelWaveSubscription = async (
   subscriptionId: string
 ): Promise<WavePaymentResponse> => {
   try {
-    const response = await fetch(`${WAVE_API_URL}/subscriptions/${subscriptionId}/cancel`, {
+    const endpoint = `${BACKEND_URL}/api/wave/subscriptions/${subscriptionId}/cancel`;
+    const response = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${WAVE_API_KEY}`,
-      },
     });
 
     if (!response.ok) {
@@ -172,11 +156,11 @@ export const cancelWaveSubscription = async (
       success: true,
       message: 'Abonnement annulé avec succès',
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Wave subscription cancellation error:', error);
     return {
       success: false,
-      error: error.message || 'Erreur lors de l\'annulation',
+      error: error instanceof Error ? error.message : 'Erreur lors de l\'annulation',
     };
   }
 };

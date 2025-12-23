@@ -18,6 +18,7 @@ export default function FinancingApplication() {
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [score, setScore] = useState<number | null>(null);
+  const [scoringResult, setScoringResult] = useState<any>(null);
   const [showScore, setShowScore] = useState(false);
 
   const handleCalculateScore = async () => {
@@ -40,6 +41,7 @@ export default function FinancingApplication() {
 
       const result = await calculateFinancingScore(user.id, requestedAmount);
       setScore(result.total_score);
+      setScoringResult(result);
       setShowScore(true);
 
       toast({
@@ -72,27 +74,25 @@ export default function FinancingApplication() {
     try {
       const requestedAmount = parseFloat(amount);
 
-      // Trouver une institution (pour l'instant, on prend la première disponible)
-      const { data: institutions } = await supabase
-        .from('user_profiles')
-        .select('id')
-        .eq('role', 'institution')
-        .limit(1);
+      // Check if user belongs to a cooperative
+      const { data: coopMember } = await supabase
+        .from('cooperative_members')
+        .select('cooperative_id')
+        .eq('user_id', user.id)
+        .single();
 
-      const institutionId = institutions?.[0]?.id;
-
-      if (!institutionId) {
-        throw new Error('Aucune institution disponible');
-      }
+      const status = coopMember ? 'submitted_to_coop' : 'submitted_to_admin';
 
       // Créer la demande de financement
       const { error } = await supabase.from('financing_applications').insert({
         entrepreneur_id: user.id,
-        institution_id: institutionId,
+        // institution_id is now initially null, determined later in workflow
+        institution_id: null,
         amount: requestedAmount,
         description,
-        score,
-        status: 'pending',
+        score, // This is legacy column, we might want to put it in ai_score too if schema requires
+        ai_score: scoringResult || { score, details: "Basic simulation" },
+        status: status,
       });
 
       if (error) {
@@ -101,11 +101,14 @@ export default function FinancingApplication() {
 
       toast({
         title: 'Succès',
-        description: 'Votre demande de financement a été soumise avec succès',
+        description: coopMember
+          ? 'Votre demande a été soumise à votre coopérative pour validation.'
+          : 'Votre demande a été soumise aux administrateurs pour validation.',
       });
 
       navigate('/dashboard');
     } catch (error: any) {
+      console.error(error);
       toast({
         title: 'Erreur',
         description: error.message || 'Impossible de soumettre la demande',
@@ -183,8 +186,8 @@ export default function FinancingApplication() {
                           {score && score >= 70
                             ? 'Excellent score! Votre demande a de fortes chances d\'être approuvée.'
                             : score && score >= 50
-                            ? 'Score moyen. Votre demande sera examinée en détail.'
-                            : 'Score faible. Améliorez votre profil pour augmenter vos chances.'}
+                              ? 'Score moyen. Votre demande sera examinée en détail.'
+                              : 'Score faible. Améliorez votre profil pour augmenter vos chances.'}
                         </p>
                       </div>
                     </CardContent>

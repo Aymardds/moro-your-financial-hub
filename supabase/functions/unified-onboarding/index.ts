@@ -6,48 +6,64 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
 const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 interface UnifiedOnboardingRequest {
-    email: string;
-    name: string;
-    role: string;
+  email: string;
+  name: string;
+  role: string;
 }
 
 serve(async (req) => {
-    if (req.method === "OPTIONS") {
-        return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { email, name, role } = await req.json() as UnifiedOnboardingRequest;
+
+    if (!RESEND_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error("Missing configuration (RESEND_API_KEY or Supabase keys)");
     }
 
-    try {
-        const { email, name, role } = await req.json() as UnifiedOnboardingRequest;
+    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-        if (!RESEND_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-            throw new Error("Missing configuration");
-        }
+    console.log(`Processing onboarding for: ${email}`);
 
-        const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    // 1. Vérifier si l'utilisateur existe déjà
+    const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+    if (listError) {
+      console.error("Error listing users:", listError);
+      throw new Error(`Failed to check existing users: ${listError.message}`);
+    }
 
-        // 1. Gérer la création du lien (Magic Link) via l'Admin API
-        // On utilise 'signup' si l'utilisateur n'existe pas encore, ou 'login' s'il existe.
-        // On peut simplement utiliser 'signup' car il gère aussi le login si l'email existe.
-        const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-            type: 'signup',
-            email,
-            options: {
-                data: { name, role },
-                redirectTo: "https://moro-your-financial-hub-1.vercel.app/dashboard",
-            }
-        });
+    const existingUser = users.find(u => u.email?.toLowerCase() === email.toLowerCase());
+    const linkType = existingUser ? 'magiclink' : 'signup';
 
-        if (linkError) throw linkError;
+    console.log(`User exists: ${!!existingUser}. Using link type: ${linkType}`);
 
-        const magicLink = data.properties.action_link;
+    // 2. Gérer la création du lien via l'Admin API
+    const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: linkType,
+      email,
+      options: {
+        data: { name, role },
+        redirectTo: "https://moro-your-financial-hub-1.vercel.app/dashboard",
+      }
+    });
 
-        // 2. Construire l'Email Premium
-        const html = `
+    if (linkError) {
+      console.error("Link generation error:", linkError);
+      throw new Error(`Auth Link Error: ${linkError.message}`);
+    }
+
+    const magicLink = data.properties.action_link;
+    console.log("Link generated successfully");
+
+    // 3. Construire l'Email Premium
+    const html = `
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 0; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background-color: #ffffff;">
         <div style="background-color: #0066cc; padding: 30px; text-align: center;">
           <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Bienvenue sur MORO</h1>
@@ -55,7 +71,7 @@ serve(async (req) => {
         
         <div style="padding: 40px 30px; color: #1e293b; line-height: 1.6;">
           <h2 style="color: #0f172a; margin-top: 0;">Bonjour ${name},</h2>
-          <p style="font-size: 16px;">Votre compte <strong>${role === 'cooperative' ? 'Coopérative' : role}</strong> a été créé. Cliquez sur le bouton ci-dessous pour accéder directement à votre espace sécurisé.</p>
+          <p style="font-size: 16px;">Votre compte <strong>${role === 'cooperative' ? 'Coopérative' : role}</strong> est prêt. Cliquez sur le bouton ci-dessous pour accéder directement à votre espace sécurisé.</p>
           
           <div style="text-align: center; margin: 40px 0;">
             <a href="${magicLink}" style="background-color: #0066cc; color: #ffffff; padding: 18px 36px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
@@ -85,33 +101,43 @@ serve(async (req) => {
       </div>
     `;
 
-        const SENDER_EMAIL = Deno.env.get("SENDER_EMAIL") || "onboarding@updates.moro.com";
+    const SENDER_EMAIL = Deno.env.get("SENDER_EMAIL") || "onboarding@updates.moro.com";
 
-        // 3. Envoyer via Resend
-        const res = await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${RESEND_API_KEY}`,
-            },
-            body: JSON.stringify({
-                from: `MORO <${SENDER_EMAIL}>`,
-                to: [email],
-                subject: "Bienvenue sur MORO - Activez votre compte",
-                html: html,
-            }),
-        });
+    // 4. Envoyer via Resend
+    console.log("Sending email via Resend...");
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: `MORO <${SENDER_EMAIL}>`,
+        to: [email],
+        subject: "Bienvenue sur MORO - Activez votre compte",
+        html: html,
+      }),
+    });
 
-        const resData = await res.json();
-        return new Response(JSON.stringify(resData), {
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+    const resData = await res.json();
 
-    } catch (error: any) {
-        return new Response(JSON.stringify({ error: error.message }), {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+    if (!res.ok) {
+      console.error("Resend API error:", resData);
+      throw new Error(`Resend API Error: ${JSON.stringify(resData)}`);
     }
+
+    console.log("Email sent successfully");
+
+    return new Response(JSON.stringify(resData), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
+  } catch (error: any) {
+    console.error("Function error:", error.message);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 });

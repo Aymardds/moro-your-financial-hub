@@ -49,11 +49,28 @@ export default function Register() {
 
         try {
             // Utiliser la fonction unifiée pour générer le lien et envoyer l'email
-            const { error } = await supabase.functions.invoke('unified-onboarding', {
+            const { data, error } = await supabase.functions.invoke('unified-onboarding', {
                 body: { email: email.trim().toLowerCase(), name: name.trim(), role: role }
             });
 
-            if (error) throw error;
+            if (error) {
+                console.error('Edge Function invocation error:', error);
+                // Si l'erreur est de type 400, on essaie d'extraire le message retourné par la fonction
+                let errorMessage = 'Une erreur est survenue lors de l\'envoi de l\'email de bienvenue';
+                if (error.context?.json?.error) {
+                    errorMessage = error.context.json.error;
+                } else if (error.message) {
+                    errorMessage = error.message;
+                }
+
+                toast({
+                    title: 'Erreur',
+                    description: errorMessage,
+                    variant: 'destructive',
+                });
+                setLoading(false);
+                return;
+            }
 
             toast({
                 title: 'Email envoyé',
@@ -67,7 +84,7 @@ export default function Register() {
             console.error('Registration error:', error);
             toast({
                 title: 'Erreur',
-                description: 'Une erreur est survenue lors de l\'envoi de l\'email de bienvenue',
+                description: error.message || 'Une erreur inattendue est survenue',
                 variant: 'destructive',
             });
             setLoading(false);

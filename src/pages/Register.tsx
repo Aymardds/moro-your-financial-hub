@@ -54,9 +54,14 @@ export default function Register() {
             });
 
             if (error) {
-                console.error('Edge Function invocation error:', error);
-                // Si l'erreur est de type 400, on essaie d'extraire le message retourné par la fonction
-                let errorMessage = 'Une erreur est survenue lors de l\'envoi de l\'email de bienvenue';
+                console.error('Unified Onboarding - Edge Function Error:', error);
+
+                // Detailed debug info
+                console.dir(error);
+
+                let errorMessage = 'Une erreur est survenue lors de l\'envoi de l\'email';
+
+                // Try to extract nested error message from response body
                 if (error.context?.json?.error) {
                     errorMessage = error.context.json.error;
                 } else if (error.message) {
@@ -64,7 +69,7 @@ export default function Register() {
                 }
 
                 toast({
-                    title: 'Erreur',
+                    title: 'Erreur d\'inscription',
                     description: errorMessage,
                     variant: 'destructive',
                 });

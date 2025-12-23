@@ -9,7 +9,10 @@ import {
     Settings,
     FileText,
     UserCheck,
-    AlertCircle
+    AlertCircle,
+    CheckCircle2,
+    XCircle,
+    ExternalLink
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,6 +27,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { OrganizationApplication } from '@/types/onboarding';
 
 interface UserProfile {
     id: string;
@@ -52,6 +56,8 @@ export default function DashboardAdmin() {
         agents: 0,
     });
     const [users, setUsers] = useState<UserProfile[]>([]);
+    const [applications, setApplications] = useState<any[]>([]);
+    const [pendingValidations, setPendingValidations] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -97,6 +103,38 @@ export default function DashboardAdmin() {
                 }));
                 setUsers(usersWithContact);
             }
+
+            // Récupérer les demandes d'organisation en attente
+            const { data: applicationsData } = await supabase
+                .from('organization_applications')
+                .select('*, user_profiles(name, email)')
+                .eq('status', 'submitted')
+                .order('created_at', { ascending: false });
+
+            if (applicationsData) {
+                setApplications(applicationsData);
+            }
+
+            // Récupérer les dossiers en attente de validation (Documents soumis)
+            // On cherche les applications dont l'utilisateur est en statut 'pending_verification'
+            const { data: validationsData } = await supabase
+                .from('organization_applications')
+                .select(`
+                    *,
+                    user_profiles!inner (
+                        id,
+                        name,
+                        email,
+                        onboarding_status
+                    ),
+                    organization_documents (*)
+                `)
+                .eq('user_profiles.onboarding_status', 'pending_verification');
+
+            if (validationsData) {
+                setPendingValidations(validationsData);
+            }
+
         } catch (error) {
             console.error('Error fetching data:', error);
             toast({
@@ -138,6 +176,100 @@ export default function DashboardAdmin() {
             toast({
                 title: 'Erreur',
                 description: error.message || 'Impossible de mettre à jour le rôle',
+                variant: 'destructive',
+            });
+        }
+    };
+
+    const handleApplicationAction = async (appId: string, userId: string, action: 'approve' | 'reject') => {
+        try {
+            if (action === 'approve') {
+                // Update application status
+                const { error: appError } = await supabase
+                    .from('organization_applications')
+                    .update({ status: 'approved' })
+                    .eq('id', appId);
+
+                if (appError) throw appError;
+
+                // Update user profile status to enable next step (documents)
+                const { error: userError } = await supabase
+                    .from('user_profiles')
+                    .update({ onboarding_status: 'awaiting_docs' })
+                    .eq('id', userId);
+
+                if (userError) throw userError;
+
+            } else {
+                const { error: appError } = await supabase
+                    .from('organization_applications')
+                    .update({ status: 'rejected' })
+                    .eq('id', appId);
+
+                if (appError) throw appError;
+            }
+
+            toast({
+                title: action === 'approve' ? 'Demande approuvée' : 'Demande rejetée',
+                description: action === 'approve' ? "L'utilisateur peut maintenant soumettre ses documents." : "Le dossier a été rejeté.",
+            });
+
+            fetchData();
+        } catch (error) {
+            console.error('Error processing application:', error);
+            toast({
+                title: 'Erreur',
+                description: "Une erreur est survenue lors du traitement.",
+                variant: 'destructive',
+            });
+        }
+    };
+
+    const handleValidationAction = async (userId: string, applicationId: string, action: 'validate' | 'reject') => {
+        try {
+            if (action === 'validate') {
+                // 1. Valider tous les documents
+                const { error: docsError } = await supabase
+                    .from('organization_documents')
+                    .update({ status: 'verified' })
+                    .eq('application_id', applicationId);
+
+                if (docsError) throw docsError;
+
+                // 2. Activer le compte de l'utilisateur
+                const { error: userError } = await supabase
+                    .from('user_profiles')
+                    .update({ onboarding_status: 'active' })
+                    .eq('id', userId);
+
+                if (userError) throw userError;
+
+                toast({
+                    title: 'Compte Activé',
+                    description: "Le compte de la coopérative est maintenant pleinement opérationnel.",
+                });
+
+            } else {
+                // Rejeter -> renvoyer à l'étape upload (awaiting_docs)
+                const { error: userError } = await supabase
+                    .from('user_profiles')
+                    .update({ onboarding_status: 'awaiting_docs' })
+                    .eq('id', userId);
+
+                if (userError) throw userError;
+
+                toast({
+                    title: 'Dossier Rejeté',
+                    description: "L'utilisateur devra soumettre de nouveaux documents.",
+                });
+            }
+
+            fetchData();
+        } catch (error) {
+            console.error('Error validating documents:', error);
+            toast({
+                title: 'Erreur',
+                description: "Erreur lors de la validation.",
                 variant: 'destructive',
             });
         }
@@ -229,11 +361,137 @@ export default function DashboardAdmin() {
             </div>
 
             {/* Gestion */}
-            <Tabs defaultValue="users" className="space-y-4">
+            <Tabs defaultValue="applications" className="space-y-4">
                 <TabsList>
+                    <TabsTrigger value="applications">Candidatures ({applications.length})</TabsTrigger>
+                    <TabsTrigger value="validations">Validations ({pendingValidations.length})</TabsTrigger>
                     <TabsTrigger value="users">Gestion Utilisateurs</TabsTrigger>
                     <TabsTrigger value="organizations">Organisations</TabsTrigger>
                 </TabsList>
+
+                <TabsContent value="applications">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Candidatures en Attente</CardTitle>
+                            <CardDescription>
+                                Examinez les demandes d'identification des coopératives/institutions
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {loading ? (
+                                <div className="text-center py-8">Chargement...</div>
+                            ) : applications.length === 0 ? (
+                                <div className="text-center py-8 text-muted-foreground">
+                                    <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-green-500" />
+                                    <p>Aucune candidature en attente</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {applications.map((app) => (
+                                        <Card key={app.id} className="p-4 border-l-4 border-l-primary">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <h3 className="font-bold text-lg">{app.basic_info.name}</h3>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        Agrément: {app.basic_info.agrement_number} • {app.basic_info.activity_type}
+                                                    </p>
+                                                    <div className="mt-2 text-sm grid grid-cols-2 gap-x-8 gap-y-1">
+                                                        <p><span className="font-medium">Zone:</span> {app.basic_info.zone}</p>
+                                                        <p><span className="font-medium">Adhérents:</span> {app.membership_info.adherence_count}</p>
+                                                        <p><span className="font-medium">Président:</span> {app.management_info.president_name}</p>
+                                                        <p><span className="font-medium">Contact:</span> {app.user_profiles?.email}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <Button variant="outline" size="sm" onClick={() => handleApplicationAction(app.id, app.user_id, 'reject')}>Rejeter</Button>
+                                                    <Button size="sm" onClick={() => handleApplicationAction(app.id, app.user_id, 'approve')}>Approuver</Button>
+                                                </div>
+                                            </div>
+                                        </Card>
+                                    ))}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="validations">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Validation des Documents</CardTitle>
+                            <CardDescription>
+                                Validez les pièces justificatives pour activer les comptes
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {loading ? (
+                                <div className="text-center py-8">Chargement...</div>
+                            ) : pendingValidations.length === 0 ? (
+                                <div className="text-center py-8 text-muted-foreground">
+                                    <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-green-500" />
+                                    <p>Aucun dossier en attente de validation</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-6">
+                                    {pendingValidations.map((app) => (
+                                        <Card key={app.id} className="p-6 border-l-4 border-l-orange-500">
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div>
+                                                    <h3 className="font-bold text-lg">{app.basic_info.name}</h3>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        {app.user_profiles?.email} • {new Date(app.created_at).toLocaleDateString()}
+                                                    </p>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <Button variant="destructive" size="sm" onClick={() => handleValidationAction(app.user_id, app.id, 'reject')}>
+                                                        <XCircle className="w-4 h-4 mr-2" />
+                                                        Rejeter
+                                                    </Button>
+                                                    <Button className="bg-green-600 hover:bg-green-700" size="sm" onClick={() => handleValidationAction(app.user_id, app.id, 'validate')}>
+                                                        <CheckCircle2 className="w-4 h-4 mr-2" />
+                                                        Valider & Activer
+                                                    </Button>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid md:grid-cols-2 gap-4">
+                                                <div>
+                                                    <h4 className="font-semibold mb-2 text-sm">Informations</h4>
+                                                    <div className="text-sm space-y-1 text-gray-600">
+                                                        <p>Type: {app.organization_type}</p>
+                                                        <p>Agrément: {app.basic_info.agrement_number}</p>
+                                                        <p>Zone: {app.basic_info.zone}</p>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-semibold mb-2 text-sm">Documents Soumis</h4>
+                                                    <div className="space-y-2">
+                                                        {app.organization_documents?.map((doc: any) => (
+                                                            <div key={doc.id} className="flex items-center justify-between bg-gray-50 p-2 rounded border">
+                                                                <div className="flex items-center">
+                                                                    <FileText className="h-4 w-4 mr-2 text-blue-500" />
+                                                                    <span className="text-sm font-medium capitalize">{doc.document_type.replace('_', ' ')}</span>
+                                                                </div>
+                                                                <a
+                                                                    href={doc.file_url}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-xs text-blue-600 hover:underline flex items-center"
+                                                                >
+                                                                    Voir <ExternalLink className="h-3 w-3 ml-1" />
+                                                                </a>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </Card>
+                                    ))}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
 
                 <TabsContent value="users">
                     <Card>

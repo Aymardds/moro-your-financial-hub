@@ -317,6 +317,59 @@ export default function DashboardSuperAdmin() {
     }
   };
 
+  const handleToggleUserStatus = async (userId: string, currentStatus: string) => {
+    try {
+      const newStatus = currentStatus === 'active' || !currentStatus ? 'banned' : 'active';
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ status: newStatus })
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Statut mis à jour',
+        description: `L'utilisateur est maintenant ${newStatus === 'active' ? 'actif' : 'suspendu'}.`,
+      });
+      fetchData();
+    } catch (error) {
+      console.error('Error toggling status:', error);
+      toast({
+        title: 'Erreur',
+        description: "Impossible de modifier le statut.",
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!window.confirm("Êtes-vous sûr de vouloir supprimer cet utilisateur ? Cette action est irréversible et supprimera toutes les données associées.")) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .delete()
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Utilisateur supprimé',
+        description: "Le profil de l'utilisateur a été supprimé.",
+      });
+      fetchData();
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast({
+        title: 'Erreur',
+        description: "Impossible de supprimer l'utilisateur (Permission refusée ou contrainte).",
+        variant: 'destructive',
+      });
+    }
+  };
+
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case 'superAdmin':
@@ -601,7 +654,7 @@ export default function DashboardSuperAdmin() {
             <CardHeader>
               <CardTitle>Liste des Utilisateurs</CardTitle>
               <CardDescription>
-                Gérez les utilisateurs et leurs rôles
+                Gérez les utilisateurs, leurs rôles et leurs accès
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -614,12 +667,13 @@ export default function DashboardSuperAdmin() {
                       <TableHead>Email / Téléphone</TableHead>
                       <TableHead>Nom</TableHead>
                       <TableHead>Rôle</TableHead>
+                      <TableHead>Statut</TableHead>
                       <TableHead>Date d'inscription</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {users.map((userProfile) => (
+                    {users.map((userProfile: any) => (
                       <TableRow key={userProfile.id}>
                         <TableCell>
                           <div className="text-sm">
@@ -636,21 +690,45 @@ export default function DashboardSuperAdmin() {
                           </Badge>
                         </TableCell>
                         <TableCell>
+                          <Badge variant={userProfile.status === 'active' || !userProfile.status ? 'default' : 'destructive'}>
+                            {userProfile.status === 'active' || !userProfile.status ? 'Actif' : 'Suspendu'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
                           {new Date(userProfile.created_at).toLocaleDateString('fr-FR')}
                         </TableCell>
                         <TableCell>
-                          <select
-                            value={userProfile.role}
-                            onChange={(e) => handleRoleChange(userProfile.id, e.target.value)}
-                            className="text-sm border rounded px-2 py-1"
-                          >
-                            <option value="entrepreneur">Entrepreneur</option>
-                            <option value="agent">Agent</option>
-                            <option value="cooperative">Coopérative</option>
-                            <option value="institution">Institution</option>
-                            <option value="admin">Admin</option>
-                            <option value="superAdmin">Super Admin</option>
-                          </select>
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={userProfile.role}
+                              onChange={(e) => handleRoleChange(userProfile.id, e.target.value)}
+                              className="text-sm border rounded px-2 py-1"
+                            >
+                              <option value="entrepreneur">Entrepreneur</option>
+                              <option value="agent">Agent</option>
+                              <option value="cooperative">Coopérative</option>
+                              <option value="institution">Institution</option>
+                              <option value="admin">Admin</option>
+                              <option value="superAdmin">Super Admin</option>
+                            </select>
+
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleToggleUserStatus(userProfile.id, userProfile.status || 'active')}
+                              className={userProfile.status === 'banned' ? "text-green-600 border-green-200 hover:bg-green-50" : "text-orange-600 border-orange-200 hover:bg-orange-50"}
+                            >
+                              {userProfile.status === 'banned' ? <Check className="h-4 w-4" /> : <UserX className="h-4 w-4" />}
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleDeleteUser(userProfile.id)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
